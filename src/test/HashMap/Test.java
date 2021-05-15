@@ -1,4 +1,4 @@
-package cn.coderap.test.HashMap;
+package test.HashMap;
 
 import java.util.HashMap;
 

@@ -1,4 +1,4 @@
-package cn.coderap.test.Float;
+package test.Float;
 
 public class Test {
     public static void main(String[] args) {

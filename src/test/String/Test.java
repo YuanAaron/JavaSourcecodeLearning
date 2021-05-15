@@ -1,4 +1,4 @@
-package cn.coderap.test.String;
+package test.String;
 
 public class Test {
     public static void main(String[] args) {
