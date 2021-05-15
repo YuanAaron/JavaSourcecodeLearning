@@ -29,6 +29,7 @@ import java.util.Map.Entry;
 /**
  * This class provides a skeletal implementation of the <tt>Map</tt>
  * interface, to minimize the effort required to implement this interface.
+ * 这个类实现了Map接口的骨架，目的是为了后续实现Map的时候少费精力。
  *
  * <p>To implement an unmodifiable map, the programmer needs only to extend this
  * class and provide an implementation for the <tt>entrySet</tt> method, which
@@ -36,20 +37,26 @@ import java.util.Map.Entry;
  * will, in turn, be implemented atop <tt>AbstractSet</tt>.  This set should
  * not support the <tt>add</tt> or <tt>remove</tt> methods, and its iterator
  * should not support the <tt>remove</tt> method.
+ * 如果要实现一个不可修改的map,开发者只需要继承这个类并实现entrySet方法，该方法返回一个映射对的set集合。
+ * 通常，这个set集合应该基于AbstractSet来实现,并且不应该支持add和remove方法，其迭代器不应该支持remove方法。
  *
  * <p>To implement a modifiable map, the programmer must additionally override
  * this class's <tt>put</tt> method (which otherwise throws an
  * <tt>UnsupportedOperationException</tt>), and the iterator returned by
  * <tt>entrySet().iterator()</tt> must additionally implement its
  * <tt>remove</tt> method.
+ * 如果要实现可修改的map，开发者必须额外地重写这个类的put方法(否则，修改map时会抛出UnsupportedOperationException异常)，
+ * 并且通过entrySet().iterator()返回的迭代器必须额外实现remove方法。
  *
  * <p>The programmer should generally provide a void (no argument) and map
  * constructor, as per the recommendation in the <tt>Map</tt> interface
  * specification.
+ * 按照Map接口文档的建议，一般来说，开发者应该提供一个无参构造方法和接受一个map对象作为参数的构造方法，
  *
  * <p>The documentation for each non-abstract method in this class describes its
  * implementation in detail.  Each of these methods may be overridden if the
  * map being implemented admits a more efficient implementation.
+ * 这个类中每个非abstract方法的文档都详细描述了它的实现。如果要实现的map允许更高效的实现，所有的方法都可能被重写。
  *
  * <p>This class is a member of the
  * <a href="{@docRoot}/../technotes/guides/collections/index.html">
@@ -458,6 +465,10 @@ public abstract class AbstractMap<K,V> implements Map<K,V> {
      * <tt>m1.entrySet().equals(m2.entrySet())</tt>.  This ensures that the
      * <tt>equals</tt> method works properly across different implementations
      * of the <tt>Map</tt> interface.
+     * 比较当前map和指定的对象是否相等
+     * 如果给定的对象也是一个map，并且这两个map有相同的映射，返回true。
+     * 更正式地说，如果m1.entrySet.equals(m2.entrySet)，那么这两个map有相同的映射。
+     * 这确保equals方法在Map接口的不同实现之间正常工作。
      *
      * @implSpec
      * This implementation first checks if the specified object is this map;
@@ -468,31 +479,35 @@ public abstract class AbstractMap<K,V> implements Map<K,V> {
      * contains each mapping that this map contains.  If the specified map
      * fails to contain such a mapping, <tt>false</tt> is returned.  If the
      * iteration completes, <tt>true</tt> is returned.
+     * 这个equals实现首先检查指定对象是否是此map,如果是，该方法返回true。接下来，它检查指定对象是否是
+     * 一个map对象，并且检查指定对象存储的键值对数量是否与当前map存储的键值对数量相等；如果不是这样，该方法
+     * 返回false。如果是这样，该方法遍历这个map的entrySet集合，并检查指定map是否包含当前map包含的每个映射对。
+     * 如果指定map不包含当前map包含的某个映射对，该方法返回false。如果遍历结束，该方法返回true。
      *
      * @param o object to be compared for equality with this map
      * @return <tt>true</tt> if the specified object is equal to this map
      */
     public boolean equals(Object o) {
-        if (o == this)
+        if (o == this) //传入的对象是否是当前map本身
             return true;
 
-        if (!(o instanceof Map))
+        if (!(o instanceof Map)) //传入的对象是否是Map的一个实例
             return false;
-        Map<?,?> m = (Map<?,?>) o;
-        if (m.size() != size())
+        Map<?,?> m = (Map<?,?>) o; //o是Map的一个实例
+        if (m.size() != size()) //比较两个Map实例存储的键值对数量是否相等
             return false;
 
-        try {
+        try { //比较两个map中的每对键值对是否相等
             Iterator<Entry<K,V>> i = entrySet().iterator();
             while (i.hasNext()) {
                 Entry<K,V> e = i.next();
                 K key = e.getKey();
                 V value = e.getValue();
                 if (value == null) {
-                    if (!(m.get(key)==null && m.containsKey(key)))
+                    if (!(m.get(key)==null && m.containsKey(key))) //m的value不等于null 或 m中不存在key
                         return false;
                 } else {
-                    if (!value.equals(m.get(key)))
+                    if (!value.equals(m.get(key))) //不管key是否存在，该表达式都能判断出两个map的value不相等
                         return false;
                 }
             }
@@ -522,7 +537,7 @@ public abstract class AbstractMap<K,V> implements Map<K,V> {
      * @see Map.Entry#hashCode()
      * @see Object#equals(Object)
      * @see Set#equals(Object)
-     */
+     */ //返回当前map对象的hash值
     public int hashCode() {
         int h = 0;
         Iterator<Entry<K,V>> i = entrySet().iterator();

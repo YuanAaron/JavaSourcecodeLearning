@@ -933,15 +933,21 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      */
     public V get(Object key) {
         Node<K,V>[] tab; Node<K,V> e, p; int n, eh; K ek;
+        //计算hash
         int h = spread(key.hashCode());
+        //如果元素所在的桶存在且里面有元素
         if ((tab = table) != null && (n = tab.length) > 0 &&
             (e = tabAt(tab, (n - 1) & h)) != null) {
+            //如果第一个元素就是要找的元素，直接返回
             if ((eh = e.hash) == h) {
                 if ((ek = e.key) == key || (ek != null && key.equals(ek)))
                     return e.val;
             }
+            //如果hash小于0，说明是树或正在迁移元素（正在扩容）
             else if (eh < 0)
                 return (p = e.find(h, key)) != null ? p.val : null;
+
+            //遍历整个链表寻找元素
             while ((e = e.next) != null) {
                 if (e.hash == h &&
                     ((ek = e.key) == key || (ek != null && key.equals(ek))))
@@ -1008,28 +1014,42 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
 
     /** Implementation for put and putIfAbsent */
     final V putVal(K key, V value, boolean onlyIfAbsent) {
+        //key和value都不能为空
         if (key == null || value == null) throw new NullPointerException();
+        //计算hash值
         int hash = spread(key.hashCode());
+        //要插入的元素所在桶的元素个数
         int binCount = 0;
         for (Node<K,V>[] tab = table;;) {
             Node<K,V> f; int n, i, fh;
+            //如果桶未初始化或桶的个数为0，则初始化桶
             if (tab == null || (n = tab.length) == 0)
                 tab = initTable();
+            //如果要插入的元素所在的桶还没有元素，则把这个元素插入到这个桶中
             else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {
+                //用一次CAS操作将这个新值放入其中即可；如果CAS失败，说明有并发操作，那就进入下一个循环
                 if (casTabAt(tab, i, null,
                              new Node<K,V>(hash, key, value, null)))
                     break;                   // no lock when adding to empty bin
             }
+            //如果要插入的元素所在的桶的第一个元素的hash值是MOVED，说明正在扩容，则当前线程帮忙一起迁移元素
             else if ((fh = f.hash) == MOVED)
                 tab = helpTransfer(tab, f);
             else {
+                //桶不为空且没有在迁移元素，则锁住这个桶
+                //查找要插入的元素是否在这个桶中，存在就替换值；不存在就插入到链表结尾或树中
                 V oldVal = null;
                 synchronized (f) {
+                    //再次检测该桶中的第一个元素是否有变化，如果有变化，进入下一次循环
                     if (tabAt(tab, i) == f) {
+                        //如果桶中的第一个元素的hash值大于0，即没有在迁移且不是树，说明桶中的元素使用链表方式存储
                         if (fh >= 0) {
+                            //桶中的元素个数赋值为1
                             binCount = 1;
+                            //遍历整个桶
                             for (Node<K,V> e = f;; ++binCount) {
                                 K ek;
+                                //如果找到了这个元素，则赋值新值，并退出循环
                                 if (e.hash == hash &&
                                     ((ek = e.key) == key ||
                                      (ek != null && key.equals(ek)))) {
@@ -1039,6 +1059,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
                                     break;
                                 }
                                 Node<K,V> pred = e;
+                                //如果到链表尾部还没有找到元素，就把它插入到链表结尾并退出循环
                                 if ((e = e.next) == null) {
                                     pred.next = new Node<K,V>(hash, key,
                                                               value, null);
@@ -1046,11 +1067,14 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
                                 }
                             }
                         }
+                        //如果该桶的第一个元素是树节点
                         else if (f instanceof TreeBin) {
                             Node<K,V> p;
-                            binCount = 2;
+                            binCount = 2; //？？？
+                            //调用红黑树的插入方法插入元素，如果成功插入返回null，否则返回寻找到的节点
                             if ((p = ((TreeBin<K,V>)f).putTreeVal(hash, key,
                                                            value)) != null) {
+                                //如果找到了这个元素，则赋值了新值，并退出循环
                                 oldVal = p.val;
                                 if (!onlyIfAbsent)
                                     p.val = value;
@@ -1058,17 +1082,22 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
                         }
                     }
                 }
+                //如果binCount不等于0，说明成功插入了元素或寻找到了元素
                 if (binCount != 0) {
+                    //如果链表元素个数达到了8个，则尝试树化
+                    //上面在把元素插入到树中时，binCount只赋值了2，并没有计算整个树中元素的个数，所以不会重复树化
                     if (binCount >= TREEIFY_THRESHOLD)
                         treeifyBin(tab, i);
+                    //如果要插入的元素已经存在，则返回旧值
                     if (oldVal != null)
                         return oldVal;
-                    break;
+                    break; //退出大循环，流程结束
                 }
             }
         }
+        //成功插入元素，元素个数加1（是否扩容在这个里面）
         addCount(1L, binCount);
-        return null;
+        return null; //成功插入元素返回null
     }
 
     /**
