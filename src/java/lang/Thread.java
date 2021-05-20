@@ -140,8 +140,10 @@ import sun.security.util.SecurityConstants;
 public
 class Thread implements Runnable {
     /* Make sure registerNatives is the first thing <clinit> does. */
+    //该方法定义在Thread.c中，作用是将其他native方法（start0、stop0等）注册到JVM中
     private static native void registerNatives();
     static {
+        //保证该方法在类加载时被调用
         registerNatives();
     }
 
@@ -352,15 +354,15 @@ class Thread implements Runnable {
     /**
      * Initializes a Thread.
      *
-     * @param g the Thread group
-     * @param target the object whose run() method gets called
-     * @param name the name of the new Thread
-     * @param stackSize the desired stack size for the new thread, or
-     *        zero to indicate that this parameter is to be ignored.
-     * @param acc the AccessControlContext to inherit, or
-     *            AccessController.getContext() if null
+     * @param g the Thread group 线程组
+     * @param target the object whose run() method gets called 携带run方法的Runnable对象
+     * @param name the name of the new Thread 线程名
+     * @param stackSize the desired stack size for the new thread, or //新线程需要的stack size，或
+     *        zero to indicate that this parameter is to be ignored. //若此值为0，意味着该属性可以被忽略
+     * @param acc the AccessControlContext to inherit, or //继承AccessControlContext
+     *            AccessController.getContext() if null //如果为null，该属性默认设置为AccessController.getContext()
      * @param inheritThreadLocals if {@code true}, inherit initial values for
-     *            inheritable thread-locals from the constructing thread
+     *            inheritable thread-locals from the constructing thread //若此值为true，从构造此线程的线程中继承thread-locals的初始值
      */
     private void init(ThreadGroup g, Runnable target, String name,
                       long stackSize, AccessControlContext acc,
@@ -369,8 +371,10 @@ class Thread implements Runnable {
             throw new NullPointerException("name cannot be null");
         }
 
+        //设置线程名：一般情况下，name的格式为“Thread-X”,其中X是一个数字，代表用Thread类创建的的第X个实例
         this.name = name;
 
+        //设置线程的ThreadGroup：要么从应用的SecurityManager处拿到，要么就直接继承父线程的ThreadGroup
         Thread parent = currentThread();
         SecurityManager security = System.getSecurityManager();
         if (g == null) {
@@ -391,6 +395,7 @@ class Thread implements Runnable {
 
         /* checkAccess regardless of whether or not threadgroup is
            explicitly passed in. */
+        //设置完成以后进行验证
         g.checkAccess();
 
         /*
@@ -402,17 +407,20 @@ class Thread implements Runnable {
             }
         }
 
+        //在真正设置此线程的ThreadGroup之前，需要为这个ThreadGroup的"还未启动的线程数目"加一
         g.addUnstarted();
 
         this.group = g;
-        this.daemon = parent.isDaemon();
-        this.priority = parent.getPriority();
+        this.daemon = parent.isDaemon(); //此线程是否为守护线程取决于父线程
+        this.priority = parent.getPriority(); //设置此线程的优先级为父线程的优先级（注意：子线程的优先级不能大于父线程）
+        //设置此线程的上下文类加载器
         if (security == null || isCCLOverridden(parent.getClass()))
             this.contextClassLoader = parent.getContextClassLoader();
         else
             this.contextClassLoader = parent.contextClassLoader;
         this.inheritedAccessControlContext =
                 acc != null ? acc : AccessController.getContext();
+        //这里的target就是携带了run()方法的Runnable对象
         this.target = target;
         setPriority(priority);
         if (inheritThreadLocals && parent.inheritableThreadLocals != null)
@@ -422,6 +430,7 @@ class Thread implements Runnable {
         this.stackSize = stackSize;
 
         /* Set thread ID */
+        //设置线程id
         tid = nextThreadID();
     }
 
@@ -691,8 +700,12 @@ class Thread implements Runnable {
      * In particular, a thread may not be restarted once it has completed
      * execution.
      *
+     * start方法会让thread开始运行，JVM会调用这个线程的run方法。
+     * 调用的结果是两个线程（调用此线程的线程以及此线程）同时运行。
+     * 无论什么情况下，同一条线程开始两次都是不合法的。特别说明：一个线程执行完后，不可能重新运行
+     *
      * @exception  IllegalThreadStateException  if the thread was already
-     *               started.
+     *               started. 如果该线程已经启动，再次调用start方法抛该异常
      * @see        #run()
      * @see        #stop()
      */
@@ -703,17 +716,26 @@ class Thread implements Runnable {
          * to this method in the future may have to also be added to the VM.
          *
          * A zero status value corresponds to state "NEW".
+         * main方法线程（运行main方法的线程），或者是由JVM创建的"system"线程，都不需要
+         * 调用此方法来启动。任何添加到这个方法中的新功能，以后都很可能也要添加到JVM中。
+         *
+         * status = 0代表线程的状态是"NEW"。
          */
+        //检查线程的状态：如果线程状态不是NEW（线程被多次start），就会抛出异常
         if (threadStatus != 0)
             throw new IllegalThreadStateException();
 
         /* Notify the group that this thread is about to be started
          * so that it can be added to the group's list of threads
          * and the group's unstarted count can be decremented. */
+        //通知线程组该线程即将启动，以便将其添加到线程组的线程list中，以及该线程组的未启动线程数减一
+
+        //将该Thread添加到之前引用的ThreadGroup中
         group.add(this);
 
         boolean started = false;
         try {
+            //调用native方法（底层开启异步线程，并调用run方法）
             start0();
             started = true;
         } finally {
@@ -724,6 +746,9 @@ class Thread implements Runnable {
             } catch (Throwable ignore) {
                 /* do nothing. If start0 threw a Throwable then
                   it will be passed up the call stack */
+                //忽略异常。如果start0抛出一个Throwable，他会被上传给调用堆栈
+
+                //这意味着，使用Runnable时，主线程无法捕获子线程中的异常状态，线程的异常，应在线程内部解决。
             }
         }
     }
@@ -1706,6 +1731,7 @@ class Thread implements Runnable {
     }
 
     /**
+     * 可以参考：https://blog.csdn.net/pange1991/article/details/53860651
      * A thread state.  A thread can be in one of the following states:
      * <ul>
      * <li>{@link #NEW}<br>
