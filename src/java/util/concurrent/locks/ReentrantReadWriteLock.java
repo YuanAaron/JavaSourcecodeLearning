@@ -257,10 +257,16 @@ public class ReentrantReadWriteLock
          * Lock state is logically divided into two unsigned shorts:
          * The lower one representing the exclusive (writer) lock hold count,
          * and the upper the shared (reader) hold count.
+         *
+         * int类型的state变量在逻辑上被分成了两个unsigned short类型：
+         * 低16位表示排它（写）锁的持有数，高16位表示共享（读）锁的持有数
          */
 
         static final int SHARED_SHIFT   = 16;
+        //1: 00000000 00000000 00000000 00000001
+        //1 << 16: 00000000 00000001 00000000 00000000
         static final int SHARED_UNIT    = (1 << SHARED_SHIFT);
+        //(1 << 16)-1: 00000000 00000000 11111111 11111111
         static final int MAX_COUNT      = (1 << SHARED_SHIFT) - 1;
         static final int EXCLUSIVE_MASK = (1 << SHARED_SHIFT) - 1;
 
